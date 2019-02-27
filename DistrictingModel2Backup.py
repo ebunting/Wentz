@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun 14 14:16:49 2018
+Last edit Feb 27 2019
 
 @author: eliza
 """
-#The purpose of this code is to determine the optimal counties to be political district centers in Oklahoma.
+#The purpose of this code is to determine the optimal counties to be political district centers in Oklahoma,
+#And assigns each county to its optimal district center based on population and distance, resulting
+#in optimally compact political districts for Oklahoma
 #Using an objective function with population of counties and distance between counties as inputs.
 #Require inputs: excel file containing distances between Oklahoma counties, excel file containing the populations of 
 #Oklahoma counties, upper and lower population bounds for political districts, and the number of political districts
@@ -14,54 +17,69 @@ from gurobipy import Model, LinExpr, GRB
 
 import xlrd
 
-#import arcpy
+def build_and_solve_hess_model(distance_location, population_location, upper_bound, lower_bound, number_of_districts):
+         
+    #Import distance between districts from excel file (originally from Eugene Lykhovyd, www.lykhovyd.com) 
+    distance = read_data(distance_location) #a list for distance matrix
+    
+    #Import the population of Oklahoma counties from excel file (originally from Eugene Lykhovyd, www.lykhovyd.com) 
+    population = read_data(population_location)
+   
+    m, Z = build_model(lower_bound, upper_bound, number_of_districts, distance,
+                       population, model_name='District Model')
+    
+    #Optimize
+    m.optimize()
+    
+    #Results: which districts are assigned to each district center?
+    result = []
+    for i in range(len(population)):
+        for j in range(len(population)):
+            if Z[i,j].x > 0.5:
+                result.append('assign %g to %s' % \
+                (i, j))
+                
+    return result
 
-
-def optimize_district(distance_location, population_location, upper_bound, lower_bound, number_of_districts):
-        
-    
-    #Import distance between districts from excel file (originally from Eugene Lykhovyd, www.lykhovyd.com)
-    
-    #file_location = ("C:\\Users\\eliza\\Desktop\\Wentz 2018-2019\\OK_distances_01172019.xlsx")  
-    
-    wb = xlrd.open_workbook(distance_location) #open workbook
+def read_data(filename):
+    wb = xlrd.open_workbook(filename) #open workbook
     sheet = wb.sheet_by_index(0) #indexing of sheet
     rows = sheet.nrows #n rows in sheet
     columns = sheet.ncols #n cols in sheet
-    distance = [] #a list for distance matrix
+    result = [] #a list for distance matrix
     for i in range(1, rows): #i is the row number
         tmpList = [] #temporary list
         for j in range(1,columns): #j is column number
-            tmpList.append(sheet.cell_value(i,j)) #add the value of cell (i,j) to tmpList
-        distance.append(tmpList) #add tmpList to distance list
+            val = sheet.cell_value(i, j)
+            if val != '':
+                tmpList.append(val) #add the value of cell (i,j) to tmpList
+        if len(tmpList) > 1:
+            result.append(tmpList) #add tmpList to distance list
+        else:
+            result.append(tmpList[0])
         tmpList.clear #clear tmpList
+    return result
+
+def build_model(lower_bound, upper_bound, number_of_districts, obj_distance,
+                obj_population, model_name='district assignments'):
     
-    #Import the population of Oklahoma counties from excel file (originally from Eugene Lykhovyd, www.lyhovyd.com)
-    
-    #file_location = ("C:\\Users\\eliza\\Desktop\\Wentz 2018-2019\\OK-Population-Counties.xls")  
-    
-    wb = xlrd.open_workbook(population_location) #open workbook
-    sheet = wb.sheet_by_index(0) #indexing of sheet
-    rows = sheet.nrows #n rows in sheet
-    columns = sheet.ncols #n cols in sheet
-    population = [] #a list for population matrix
-    for i in range(1, rows): #i is the row
-            population.append(sheet.cell_value(i, 1)) #add the value of cell (i,j) to tmpList
+    population = obj_population
+    distance = obj_distance
     
     #Lower bound of counties/population units allowed in district
-    LB = lower_bound #705253.988
+    LB = lower_bound
     
     #Upper bound of counties/population units allowed in district
-    UB = upper_bound #795286
+    UB = upper_bound
     
     #K = number of districts
-    K = number_of_districts #5
+    K = number_of_districts
     
     #The vertices are individual counties (population units)
     vertices = range(len(population))
     
     # Model
-    m = Model("districting")
+    m = Model(model_name)
     
     #Decision variable to decide if population unit i is assigned to region j
     Z = m.addVars(vertices, 
@@ -72,7 +90,6 @@ def optimize_district(distance_location, population_location, upper_bound, lower
      
     #The objective is to minimize the distance between all 
     #population units and their district centers 
-    
     #adding objective function
     
     expr = LinExpr()
@@ -124,23 +141,10 @@ def optimize_district(distance_location, population_location, upper_bound, lower
             if (i != j):
                 m.addConstr(Z[i,j] <= Z[j,j])
     
-    #m.write('districtingprogram.lp')
-    
-    #Optimize
-    m.optimize()
-    
-    #Results: which districts are assigned to each district center?
-    result = []
-    for i in vertices:
-        for j in vertices:
-            if Z[i,j].x > 0.5:
-                result.append('assign %g to %s' % \
-                (i, j))
-                
-    return result
+    return m, Z
 
-optimized = optimize_district("C:\\Users\\eliza\\Desktop\\Wentz 2018-2019\\OK_distances_01172019.xlsx", 
+optimized = build_and_solve_hess_model("C:\\Users\\eliza\\Desktop\\Wentz 2018-2019\\OK_distances_01172019.xlsx", 
                               "C:\\Users\\eliza\\Desktop\\Wentz 2018-2019\\OK-Population-Counties.xls",
-                              795286, 705253.988, 5)
+                              795286, 705254, 5)
 
 print(optimized)
