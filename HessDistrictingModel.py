@@ -26,8 +26,7 @@ def build_and_solve_hess_model(distance_location, population_location, U, L, K):
     :param L: (float) lower bound of counties allowed in a district
     :param U: (float) upper bound of counties allowed in a district
     :param K: (int) number of districts
-    :param model_name: (string) optional name for model
-    :return: (tupel) returns model and decision variable
+    :return: (tuple) returns model and decision variable
     """
     #Import distance between districts from excel file (originally from Eugene Lykhovyd, www.lykhovyd.com) 
     distance = read_data(distance_location) #a list for distance matrix
@@ -87,7 +86,7 @@ def build_model(L, U, K, distance, population, model_name='district assignments'
     :param distance: (list) the distance between each county
     :param population: (list) the population of each county
     :param model_name: (string) optional name for model
-    :return: (tupel) returns model and decision variable
+    :return: (tuple) returns model and decision variable
     """
   
     #The vertices are individual counties (population units)
